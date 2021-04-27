@@ -4,76 +4,163 @@
 
 import codecs
 import requests
+import html
+import datetime
+import gspread
+import time
+from oauth2client.service_account import ServiceAccountCredentials
 from bs4 import BeautifulSoup
 
 #---------------------------------------------------------------------------------------
-# Main processing routine.
+# Basic Stuff
 #---------------------------------------------------------------------------------------
 
-outFile = "C:/Users/Ken/Documents/Ken/Blog/Law & Order/data.csv"
-out = codecs.open(outFile, 'w', 'utf-8')
-#out.write ('Name,URL,Occupation,Occupation Detail,Birth,Death')
-out.write('\n')
-
+urlBase = "https://lawandorder.fandom.com"
 recordCount = 0
+episodeMatrix = {}
+episodeCount = 0
 
-pageURL = "https://lawandorder.fandom.com/wiki/Law_%26_Order:_Special_Victims_Unit_episodes"
-page = requests.get(pageURL)
+# Open Google Sheet
+scope = ['https://spreadsheets.google.com/feeds']
+credentials = ServiceAccountCredentials.from_json_keyfile_name('C:/Users/Ken/Documents/Ken/Blog/My Vizzes/Python/creds.json', scope)
+gc = gspread.authorize(credentials)  
 
-if page.status_code==200:
-    print("Downloaded from " + pageURL)
+#---------------------------------------------------------------------------------------
+# Process Episodes for Each Show
+#---------------------------------------------------------------------------------------
 
-    episodeNum = 0
-    episodeString =""
+# Read the list of shows from the Google sheet
+sheet = gc.open_by_url('https://docs.google.com/spreadsheets/d/1O7EteEDpOc37dQWAS9LD3bNxAOCEbL4MOuVLP5yreyY')
+worksheet = sheet.worksheet("Shows")
 
-    seasonEpisode = "0"
-    seasonNum = "1"
+showList = worksheet.col_values(1)
+urlList = worksheet.col_values(2)
+maxEpisodeList = worksheet.col_values(3)
 
-    found = True
-    soup = BeautifulSoup(page.content, 'html.parser')
-    text = str(soup)
+# Connect to the Episode sheet
+worksheet = sheet.worksheet("Episodes")
 
-    while (found==True):
-        episodeNum += 1
-        startPos = text.find("(#" + str(episodeNum) +")")
+# Loop through each show and collect information.
+for i in range(1, len(showList)):
+    showName = showList[i]
+    pageURL = urlList[i]
+    maxEpisode = int(maxEpisodeList[i])
 
-        if episodeNum == 30:
-            exit()
+    page = requests.get(pageURL)
 
-        if startPos == -1:
-            # Could not find another episode
-            found=False
-        else:         
-            found=True
+    if page.status_code==200:
+        print("Downloaded from " + pageURL)
 
-            # Start by parsing out the season & episode numbers.
-            text = text[startPos-6:len(text)]
-            startPos = text.find(" ")
-            episodeString = text[0:startPos]
-            episodeString = episodeString.replace(">", "")
-            episodeString = episodeString.split(".")
+        episodeNum = 0
+        episodeString =""
 
-            seasonNum = str(int(episodeString[0]))
-            seasonEpisode = str(int(episodeString[1]))
+        seasonEpisode = "0"
+        seasonNum = "1"
 
+        found = True
+        soup = BeautifulSoup(page.content, 'html.parser')
+        text = str(soup)
 
-            
-            print("--------------------------------------")
+        while (found==True):
+            episodeNum += 1
 
+            if showName=="Law & Order: Criminal Intent" and episodeNum == 14:
+                # Site shows episode # 4 here. Search for 4 again
+                strPos = text.find("(#4)")
+            else:
+                strPos = text.find("(#" + str(episodeNum) +")")
 
-            # Go to the <a hrref="" and parse out the link to the episode.
-            # Then grab the title
-            # Grab the date
-            # Write the episodes to a Google Sheet which contains the Show, Season, Episode, Title, Date, and URL
-            # Once done, loop through all of the episodes. Collect main cast members, Recurring cast members, and Guest cast members.
-            # Capture the character and actor, as well as both the related URLs
-            # URLs will help us to uniquely identify the person.
-            # Ignore titles.
-            # Do we need to collect information about the characters?
-            # Need to link each character back to their episodes.
-        
-else:
-    # Failed to download the content.
-    print("Failed to download from " + pageURL)
+            if strPos == -1:
+                # Could not find another episode
+                found=False
+            else:         
+                found=True
 
-out.close()
+                # Start by parsing out the season & episode numbers.
+                if episodeNum == maxEpisode:
+                    # We don't want to load any future episodes.
+                    found=False
+
+                text = text[strPos-6:len(text)]
+                strPos = text.find(" ")
+                episodeString = text[0:strPos]  
+                episodeString = episodeString.replace(">", "")
+                episodeString = episodeString.split(".")
+
+                seasonNum = episodeString[0]
+                seasonEpisode = episodeString[1]
+                
+                if len(seasonEpisode) > 2:
+                    # Some bogus characters in some episodes.
+                    seasonEpisode = seasonEpisode[0:2]
+
+                # Parse out the url.
+                strPos = text.find("<a href=")
+                strPos2 = text.find('" title="')
+                episodeURL = urlBase + text[strPos+9:strPos2]
+
+                # Parse out the title.
+                strPos = strPos2+9
+                strPos2 = text.find('">', strPos)
+                episodeTitle = text[strPos:strPos2]
+                episodeTitle = html.unescape(episodeTitle)
+
+                # Parse out the day and month.
+                tempText = text[strPos2+2:len(text)]
+                strPos = tempText.find('" title="')
+                strPos2 = tempText.find('">')
+                episodeDayMonth = tempText[strPos+9:strPos2]
+
+                # Parse out the year.
+                tempText = tempText[strPos2+2:len(tempText)]
+                strPos = tempText.find('" title="')
+                strPos2 = tempText.find('">')
+                episodeYear = tempText[strPos+9:strPos2]
+
+                # Store all values in an array.
+                episodeMatrix[episodeCount, 0] = showName
+                episodeMatrix[episodeCount, 1] = seasonNum
+                episodeMatrix[episodeCount, 2] = seasonEpisode
+                episodeMatrix[episodeCount, 3] = episodeNum
+                episodeMatrix[episodeCount, 4] = episodeTitle
+                episodeMatrix[episodeCount, 5] = episodeDayMonth
+                episodeMatrix[episodeCount, 6] = episodeYear
+                episodeMatrix[episodeCount, 7] = episodeURL
+                episodeCount += 1
+
+    else:
+        # Failed to download the content.
+        print("Failed to download from " + pageURL)
+
+# Loop through the matrix and write values for a batch update to Google Sheets.
+rangeString = "A2:H" + str(episodeCount+1)
+cell_list = worksheet.range(rangeString)
+
+row = 0
+column = 0
+
+for cell in cell_list: 
+    cell.value = episodeMatrix[row,column]
+    column += 1
+    if (column > 7):
+        column=0
+        row += 1
+
+# Update in batch 
+worksheet.update_cells(cell_list)
+
+print ("Wrote " + str(episodeCount) + " episode records.")
+
+print("Finished processing all episodes.")
+
+#---------------------------------------------------------------------------------------
+# Process Characters for Each Episode.
+#---------------------------------------------------------------------------------------
+
+# Loop through each episode on the episode sheet.showName
+# Collect main cast members, Recurring cast members, and Guest cast members.
+# Capture the character and actor, as well as both the related URLs
+# URLs will help us to uniquely identify the person.
+# Ignore titles.
+# Do we need to collect biographical details about the characters?
+# Write separate record for each character/episode combination?
