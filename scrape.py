@@ -5,9 +5,7 @@
 import codecs
 import requests
 import html
-import datetime
 import gspread
-import time
 from oauth2client.service_account import ServiceAccountCredentials
 from bs4 import BeautifulSoup
 
