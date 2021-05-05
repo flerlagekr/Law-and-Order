@@ -353,7 +353,13 @@ for i in range(1, len(urlList)):
                  
                     if characterName == 'Detective Olivia Benson':
                         characterName = 'Olivia Benson'
-                 
+
+                    if actorName == 'Marcia Gay Harden':
+                        characterName = 'Dana Lewis'
+
+                    if 'Jonah "Joe" Dekker' in characterName:
+                        characterName = 'Jonah Dekker'
+
                     if len(characterName) == 0:
                         print("Potential data problem (no character name) with character # " + str(characterCount+1))
 
@@ -363,6 +369,9 @@ for i in range(1, len(urlList)):
                     if len(characterName) > 50 or len(actorName) > 50:
                         print("Potential data problem (name too long) with character # " + str(characterCount+1))
                         characterName = ""
+
+
+
 
                     # Store all values in an array.
                     characterMatrix[characterCount, 0] = characterCount+1
