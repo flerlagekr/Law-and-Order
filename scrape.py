@@ -371,8 +371,6 @@ for i in range(1, len(urlList)):
                         characterName = ""
 
 
-
-
                     # Store all values in an array.
                     characterMatrix[characterCount, 0] = characterCount+1
                     characterMatrix[characterCount, 1] = episodeIDList[i]
