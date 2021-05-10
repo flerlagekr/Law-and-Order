@@ -39,7 +39,7 @@ episodeCount = 0
 
 # Open Google Sheet
 scope = ['https://spreadsheets.google.com/feeds']
-credentials = ServiceAccountCredentials.from_json_keyfile_name('C:/Users/Ken/Documents/Ken/Blog/My Vizzes/Python/creds.json', scope)
+credentials = ServiceAccountCredentials.from_json_keyfile_name('<creds file location>', scope)
 gc = gspread.authorize(credentials)  
 
 #---------------------------------------------------------------------------------------
@@ -49,7 +49,7 @@ gc = gspread.authorize(credentials)
 print('Processing episode records.')
 
 # Read the list of shows from the Google sheet
-sheet = gc.open_by_url('https://docs.google.com/spreadsheets/d/1O7EteEDpOc37dQWAS9LD3bNxAOCEbL4MOuVLP5yreyY')
+sheet = gc.open_by_url('https://docs.google.com/spreadsheets/d/<gsheet ID>')
 worksheet = sheet.worksheet("Shows")
 
 showList = worksheet.col_values(1)
